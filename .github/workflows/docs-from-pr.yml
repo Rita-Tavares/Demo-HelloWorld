@@ -1,53 +1,25 @@
 name: Docs from PR
+
 on:
   pull_request:
     types: [closed]
 
 jobs:
-  make-doc:
-    if: github.event.pull_request.merged == true && contains(github.event.pull_request.labels.*.name, 'user-facing')
+  sync-docs:
+    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout docs repo
-        uses: actions/checkout@v4
-        with:
-          repository: Rita-Tavares/demo-docs-repo
-          token: ${{ secrets.DOCS_REPO_TOKEN }}
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-      - name: Generate doc page
-        env:
-          PR_TITLE: ${{ github.event.pull_request.title }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          PR_BODY: ${{ github.event.pull_request.body }}
-          PR_URL: ${{ github.event.pull_request.html_url }}
+      - name: Push to docs repo
         run: |
-          SAFE_TITLE="$(echo "$PR_TITLE" | tr ' /' '-' | tr -cd '[:alnum:]-' | tr '[:upper:]' '[:lower:]')"
-          DATE="$(date -u +%Y-%m-%d)"
-          FILE="changes/${DATE}-${SAFE_TITLE}.md"
-          mkdir -p changes
-          cat > "$FILE" << 'EOF'
-          ---
-          title: '"'"$PR_TITLE"'"'
-          description: "Auto-generated from PR #'"'"$PR_NUMBER"'"'"
-          ---
-          **PR:** [$PR_NUMBER]($PR_URL)
-
-          $PR_BODY
-          EOF
-
-      - name: Commit & push
-        run: |
-          git config user.name "docs-bot"
-          git config user.email "bot@example.com"
-          git checkout -b docs/from-pr-${{ github.event.pull_request.number }}
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git clone https://github.com/Rita-Tavares/demo-docs-repo.git
+          rsync -av --exclude='.git' ./ demo-docs-repo/
+          cd demo-docs-repo
           git add .
-          git commit -m "docs: $PR_TITLE (#${{ github.event.pull_request.number }})"
-          git push -u origin HEAD
-
-      - name: Open PR to docs repo
-        uses: peter-evans/create-pull-request@v6
-        with:
-          token: ${{ secrets.DOCS_REPO_TOKEN }}
-          title: "Docs: ${{ github.event.pull_request.title }} (PR #${{ github.event.pull_request.number }})"
-          body: "Automated docs page generated from PR."
-          branch: "docs/from-pr-${{ github.event.pull_request.number }}"
+          git commit -m "Update docs from PR #${{ github.event.pull_request.number }}" || echo "No changes to commit"
+          git push
