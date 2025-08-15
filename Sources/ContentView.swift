@@ -2,7 +2,7 @@ import SwiftUI
 
 struct ContentView: View {
     @State private var isProModeEnabled = false
-    @State private var welcomeMessage = "Welcome to the Demo App!"
+    @State private var welcomeMessage = "Welcome to the Demo App"
 
     var body: some View {
         NavigationView {
