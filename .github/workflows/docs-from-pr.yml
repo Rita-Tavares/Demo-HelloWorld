@@ -36,7 +36,7 @@ jobs:
             -o /tmp/pr.diff
           test -s /tmp/pr.diff || { echo "PR diff is empty"; exit 1; }
 
-      - name: Build docs page
+      - name: Build docs page (into new-docs/)
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -45,6 +45,7 @@ jobs:
         run: |
           set -e
           DATE="$(date -u +%Y-%m-%d)"
+          # slug from PR title
           SAFE_TITLE="$(echo "$PR_TITLE" | tr ' /' '-' | tr -cd '[:alnum:]-' | tr '[:upper:]' '[:lower:]')"
           FILE="docs-repo/new-docs/${DATE}-${SAFE_TITLE}.md"
           mkdir -p "$(dirname "$FILE")"
