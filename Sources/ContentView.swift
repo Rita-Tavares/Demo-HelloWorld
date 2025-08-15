@@ -6,7 +6,7 @@ struct ContentView: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            Text("Welcome to HelloWorld App")
+            Text("Welcome to HelloWorld App!")
                 .font(.largeTitle)
                 .multilineTextAlignment(.center)
 
