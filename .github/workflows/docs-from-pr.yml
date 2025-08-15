@@ -3,13 +3,17 @@ name: Docs from PR
 on:
   pull_request:
     types: [closed]
-    branches:
-      - main
+    branches: [ main ]
+
+permissions:
+  contents: write
+  pull-requests: write
 
 jobs:
   write-doc:
     if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout docs repo
         uses: actions/checkout@v4
@@ -18,59 +22,52 @@ jobs:
           token: ${{ secrets.DOCS_REPO_TOKEN }}
           path: docs-repo
 
-      - name: Build change page from PR
+      - name: Fetch PR diff (authenticated)
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          curl -sSL \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github.v3.diff" \
+            "https://api.github.com/repos/$REPO/pulls/$PR_NUMBER" \
+            -o /tmp/pr.diff
+          test -s /tmp/pr.diff || { echo "PR diff is empty"; exit 1; }
+
+      - name: Build docs page
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_URL: ${{ github.event.pull_request.html_url }}
-          DIFF_URL: ${{ github.event.pull_request.diff_url }}
         run: |
           set -e
           DATE="$(date -u +%Y-%m-%d)"
           SAFE_TITLE="$(echo "$PR_TITLE" | tr ' /' '-' | tr -cd '[:alnum:]-' | tr '[:upper:]' '[:lower:]')"
           FILE="docs-repo/changes/${DATE}-${SAFE_TITLE}.md"
           mkdir -p "$(dirname "$FILE")"
-
-          echo "Fetching unified diff…"
-          curl -L "$DIFF_URL" -o /tmp/pr.diff
-
           {
             echo "---"
             echo "title: \"$PR_TITLE\""
             echo "description: \"Auto-generated from PR #$PR_NUMBER\""
             echo "---"
-            echo ""
+            echo
             echo "**PR:** [#$PR_NUMBER]($PR_URL)"
-            echo ""
-            echo "### Summary"
-            echo "- This page was generated automatically when the PR merged."
-            echo ""
-            echo "### Swift Code changes (unified diff)"
-            echo ""
-            echo '```swift'
-            sed -e 's/\t/  /g' /tmp/pr.diff | sed -e 's/\r$//'   # normalize tabs/CRLF
+            echo
+            echo "### Code changes (unified diff)"
+            echo '```diff'
+            sed -e 's/\t/  /g' /tmp/pr.diff | sed -e 's/\r$//'
             echo '```'
           } > "$FILE"
 
-          echo "Wrote $FILE"
-
-      - name: Commit and push docs branch
-        working-directory: docs-repo
-        run: |
-          set -e
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          BR="docs-from-pr-${{ github.event.pull_request.number }}"
-          git checkout -b "$BR"
-          git add .
-          git commit -m "docs: ${{ github.event.pull_request.title }} (PR #${{ github.event.pull_request.number }})" || echo "No changes to commit"
-          git push -u origin "$BR" || true
-
+      # Do NOT manually create/push a branch. Let the action below do it.
       - name: Open PR to docs repo
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.DOCS_REPO_TOKEN }}
           path: docs-repo
+          base: main
+          branch: docs/from-pr-${{ github.event.pull_request.number }}
           title: "Docs: ${{ github.event.pull_request.title }} (PR #${{ github.event.pull_request.number }})"
           body: "Automated docs page generated from PR [#${{ github.event.pull_request.number }}](${{ github.event.pull_request.html_url }})."
-          branch: "docs-from-pr-${{ github.event.pull_request.number }}"
