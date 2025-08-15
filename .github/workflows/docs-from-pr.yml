@@ -46,7 +46,7 @@ jobs:
           set -e
           DATE="$(date -u +%Y-%m-%d)"
           SAFE_TITLE="$(echo "$PR_TITLE" | tr ' /' '-' | tr -cd '[:alnum:]-' | tr '[:upper:]' '[:lower:]')"
-          FILE="docs-repo/changes/${DATE}-${SAFE_TITLE}.md"
+          FILE="docs-repo/${DATE}-${SAFE_TITLE}.md"
           mkdir -p "$(dirname "$FILE")"
 
           {
