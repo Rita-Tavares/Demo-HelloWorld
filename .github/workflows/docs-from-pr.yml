@@ -41,12 +41,14 @@ jobs:
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_BODY: ${{ github.event.pull_request.body }}
         run: |
           set -e
           DATE="$(date -u +%Y-%m-%d)"
           SAFE_TITLE="$(echo "$PR_TITLE" | tr ' /' '-' | tr -cd '[:alnum:]-' | tr '[:upper:]' '[:lower:]')"
           FILE="docs-repo/changes/${DATE}-${SAFE_TITLE}.md"
           mkdir -p "$(dirname "$FILE")"
+
           {
             echo "---"
             echo "title: \"$PR_TITLE\""
@@ -55,13 +57,17 @@ jobs:
             echo
             echo "**PR:** [#$PR_NUMBER]($PR_URL)"
             echo
+            if [ -n "$PR_BODY" ]; then
+              echo "### Summary"
+              echo "$PR_BODY"
+              echo
+            fi
             echo "### Code changes (unified diff)"
             echo '```diff'
             sed -e 's/\t/  /g' /tmp/pr.diff | sed -e 's/\r$//'
             echo '```'
           } > "$FILE"
 
-      # Do NOT manually create/push a branch. Let the action below do it.
       - name: Open PR to docs repo
         uses: peter-evans/create-pull-request@v6
         with:
